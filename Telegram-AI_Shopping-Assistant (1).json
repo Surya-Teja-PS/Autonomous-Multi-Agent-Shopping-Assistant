@@ -1,0 +1,150 @@
+{
+  "name": "Telegram-AI_Shopping-Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"]
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [-336, -640],
+      "id": "5475b002-61ee-4ea9-9bf2-b33fa90dcd58",
+      "name": "Telegram Trigger",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}{{ $json.text }}{{ $('Telegram Trigger').item.json.message.text }}",
+        "options": {
+          "systemMessage": "You are Maya, a shopping and styling assistant..."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [848, -640],
+      "id": "fda4c036-e9f8-4a84-bbe0-bf562078b234",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [784, -416],
+      "id": "4df00773-6abb-415d-8399-8a20d7f3a2b9",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "url": "https://api.scraperapi.com",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "{{ $env.SCRAPER_API_KEY }}"
+            },
+            {
+              "name": "url",
+              "value": "={{ $fromAI('parameters1_Value', '', 'string') }}"
+            }
+          ]
+        },
+        "responseType": "html"
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [1040, -416],
+      "id": "9d89024d-e76c-4984-8383-ea30fdf01484",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $items(\"Telegram Trigger\")[0].json.message.chat.id }}",
+        "text": "={{ $json.output }}"
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1248, -640],
+      "id": "a8c7f8c0-3c48-49ad-b432-5af1291d9700",
+      "name": "Send a text message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "b9ab170a-e23e-43f9-825a-43017488ce70",
+              "leftValue": "={{ $json.message.voice }}",
+              "operator": {
+                "type": "object",
+                "operation": "exists"
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-112, -640],
+      "id": "380d61b6-6b0d-42fc-b1ed-e5598ee7daee",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.voice.file_id }}"
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [112, -704],
+      "id": "111b25f4-a6b1-4188-87a1-ff21c7b39773",
+      "name": "Get a file"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.GROQ_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "whisper-large-v3-turbo" },
+            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "data" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [560, -704],
+      "id": "e8b67f91-63bd-4e7c-9583-b6196b57e0c2",
+      "name": "HTTP Request1"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "If", "type": "main", "index": 0 }]] },
+    "Google Gemini Chat Model": { "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "HTTP Request": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
+    "AI Agent": { "main": [[{ "node": "Send a text message", "type": "main", "index": 0 }]] },
+    "If": { "main": [[{ "node": "Get a file", "type": "main", "index": 0 }], [{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "Get a file": { "main": [[{ "node": "HTTP Request1", "type": "main", "index": 0 }]] },
+    "HTTP Request1": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] }
+  }
+}
