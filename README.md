@@ -47,4 +47,6 @@ n8n instance (Local or Cloud)
 
 API Keys for Google AI Studio (Gemini), Groq, and ScraperAPI
 
+![System Architecture](Screenshot%202026-07-14%20230757.png)
+
 
